@@ -7,7 +7,7 @@ from datetime import timezone, datetime, timedelta
 from outlook_ics import buscar_eventos_outlook_ics
 
 
-ics_url = "https://outlook.office365.com/owa/calendar/7dc03ffb51384f9ca501870ee3774770@arlequim.com/7aae8a96208a43ceb50db643aae6155e12716450029896530134/calendar.ics"
+ics_url = st.secrets["ics"]["url"]
 
 st.set_page_config(page_title="Secretária Virtual", layout="centered")
 st.title("🤖 Secretária Virtual de Reuniões")
