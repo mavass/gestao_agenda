@@ -55,6 +55,28 @@ if DEBUG:
             st.json(diag)
             # grava no log
             log.info("=== ICS DIAG ===\n%s\n=== /ICS DIAG ===", json.dumps(diag, ensure_ascii=False, indent=2))
+
+# --- DEBUG: listar ocorrências do dia selecionado ---
+from datetime import datetime, timedelta
+import pandas as pd
+from dateutil import tz
+from outlook_ics import buscar_eventos_outlook_ics
+
+if DEBUG:
+    tz_sp = tz.gettz("America/Sao_Paulo")
+    dia = st.date_input("Dia para depurar (ICS)", value=pd.Timestamp.today().date())
+    ini = datetime(dia.year, dia.month, dia.day, 0, 0, tzinfo=tz_sp)
+    fim = ini + timedelta(days=1)
+
+    ics_url = st.secrets.get("ics", {}).get("url", "")
+    try:
+        eventos = buscar_eventos_outlook_ics(ics_url, ini, fim)
+        st.write(f"Eventos ICS nesse dia: {len(eventos)}")
+        for s, e, nome, src in sorted(eventos, key=lambda x: x[0]):
+            st.write(f"{s.strftime('%Y-%m-%d %H:%M')} — {e.strftime('%H:%M')} | {nome}")
+    except Exception as e:
+        st.error(f"Falha ao listar eventos ICS: {e}")
+
 # --- DEBUG & LOG SETUP (colocar no topo do app.py) ---
 
 
@@ -154,6 +176,7 @@ if st.button("Agendar Reunião"):
         st.success("Evento criado na agenda Gmail!")
         if link_evento:
             st.markdown(f"[Abrir no Google Calendar]({link_evento})")
+
 
 
 
