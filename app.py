@@ -6,8 +6,31 @@ from agendamento import buscar_emails_convidados, agendar_reuniao_laudite, agend
 from datetime import timezone, datetime, timedelta
 from outlook_ics import buscar_eventos_outlook_ics
 
-
 ics_url = st.secrets["ics"]["url"]
+
+# --- DEBUG ICS (remover após investigar) ---
+import os
+import json
+import streamlit as st
+from outlook_ics import diagnostico_ics
+
+DEBUG = bool(st.secrets.get("DEBUG", False)) or os.getenv("ICS_DEBUG") == "1"
+
+if DEBUG:
+    st.info("DEBUG ICS ativo — exibindo diagnóstico da URL ICS.")
+    ics_url = st.secrets.get("ics", {}).get("url", "")
+    if not ics_url:
+        st.error("st.secrets['ics']['url'] não configurado.")
+    else:
+        diag = diagnostico_ics(ics_url)
+        # Mostra na UI:
+        st.subheader("Diagnóstico da requisição ICS")
+        st.json(diag)
+        # E registra nos logs de servidor (stdout):
+        print("=== ICS DIAG ===")
+        print(json.dumps(diag, ensure_ascii=False, indent=2))
+        print("=== /ICS DIAG ===")
+
 
 st.set_page_config(page_title="Secretária Virtual", layout="centered")
 st.title("🤖 Secretária Virtual de Reuniões")
@@ -107,3 +130,4 @@ if st.button("Agendar Reunião"):
         st.success("Evento criado na agenda Gmail!")
         if link_evento:
             st.markdown(f"[Abrir no Google Calendar]({link_evento})")
+
