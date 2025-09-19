@@ -8,6 +8,9 @@ from outlook_ics import buscar_eventos_outlook_ics
 
 ics_url = st.secrets["ics"]["url"]
 
+st.set_page_config(page_title="Secretária Virtual", layout="centered")
+st.title("🤖 Secretária Virtual de Reuniões")
+
 # --- DEBUG & LOG SETUP (colocar no topo do app.py) ---
 import os, json, logging, urllib.parse
 import streamlit as st
@@ -54,8 +57,7 @@ if DEBUG:
             log.info("=== ICS DIAG ===\n%s\n=== /ICS DIAG ===", json.dumps(diag, ensure_ascii=False, indent=2))
 # --- DEBUG & LOG SETUP (colocar no topo do app.py) ---
 
-st.set_page_config(page_title="Secretária Virtual", layout="centered")
-st.title("🤖 Secretária Virtual de Reuniões")
+
 
 # Visualizar Agenda Completa
 
@@ -152,5 +154,6 @@ if st.button("Agendar Reunião"):
         st.success("Evento criado na agenda Gmail!")
         if link_evento:
             st.markdown(f"[Abrir no Google Calendar]({link_evento})")
+
 
 
