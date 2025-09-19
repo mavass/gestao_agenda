@@ -1,8 +1,13 @@
+import os
 import requests
 from ics import Calendar
 from dateutil import tz
 from typing import List, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Ajuste de fuso (+3h) exclusivo para eventos do Outlook ICS.
+# Pode mudar via variável de ambiente OUTLOOK_ICS_SHIFT_HOURS no deploy.
+SHIFT_HOURS = int(os.getenv("OUTLOOK_ICS_SHIFT_HOURS", "3"))
 
 def buscar_eventos_outlook_ics(
     ics_url: str,
@@ -60,9 +65,17 @@ def buscar_eventos_outlook_ics(
         start = to_sp(ev.begin)
         end = to_sp(ev.end)
 
+        # Workaround: corrige fuso (+3h) somente para eventos do ICS
+        if SHIFT_HOURS:
+            delta = timedelta(hours=SHIFT_HOURS)
+            start += delta
+            end += delta
+
         # Interseção inclusiva com a janela pedida
         if not (end <= inicio or start >= fim):
             resumo = (getattr(ev, "name", None) or "Ocupado").strip()
             busy.append((start, end, resumo, "marcelo.vasserman@arlequim.com"))
 
     return busy
+
+# (Mantém sua função diagnostico_ics se você a tiver no arquivo)
