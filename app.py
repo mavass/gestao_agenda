@@ -8,29 +8,51 @@ from outlook_ics import buscar_eventos_outlook_ics
 
 ics_url = st.secrets["ics"]["url"]
 
-# --- DEBUG ICS (remover após investigar) ---
-import os
-import json
+# --- DEBUG & LOG SETUP (colocar no topo do app.py) ---
+import os, json, logging, urllib.parse
 import streamlit as st
-from outlook_ics import diagnostico_ics
 
-DEBUG = bool(st.secrets.get("DEBUG", False)) or os.getenv("ICS_DEBUG") == "1"
+# logger básico para garantir saída no stdout do Streamlit Cloud
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(message)s")
+log = logging.getLogger("ICS")
 
+# Heartbeat de boot (sempre deve aparecer no log)
+log.info("APP BOOT — entrou no app.py")
+
+# Descobre DEBUG de 3 formas: secrets, env, querystring (?debug=1)
+qs = st.query_params  # Streamlit 1.32+
+qs_debug = qs.get("debug", ["0"])
+DEBUG = (
+    bool(st.secrets.get("DEBUG", False))
+    or os.getenv("ICS_DEBUG") == "1"
+    or (isinstance(qs_debug, list) and qs_debug[0] in ("1", "true", "True"))
+)
+
+log.info(f"DEBUG flag = {DEBUG}")
+
+# Checa se a URL ICS existe em st.secrets
+ics_url = st.secrets.get("ics", {}).get("url", "")
+log.info(f"ICS URL presente? {'sim' if bool(ics_url) else 'nao'}")
+
+# Painel na UI para sinalizar debug
 if DEBUG:
     st.info("DEBUG ICS ativo — exibindo diagnóstico da URL ICS.")
-    ics_url = st.secrets.get("ics", {}).get("url", "")
     if not ics_url:
         st.error("st.secrets['ics']['url'] não configurado.")
     else:
-        diag = diagnostico_ics(ics_url)
-        # Mostra na UI:
-        st.subheader("Diagnóstico da requisição ICS")
-        st.json(diag)
-        # E registra nos logs de servidor (stdout):
-        print("=== ICS DIAG ===")
-        print(json.dumps(diag, ensure_ascii=False, indent=2))
-        print("=== /ICS DIAG ===")
-
+        try:
+            from outlook_ics import diagnostico_ics
+        except Exception as e:
+            st.exception(e)
+            log.exception("Falha ao importar diagnostico_ics")
+        else:
+            diag = diagnostico_ics(ics_url)
+            # mostra na UI
+            st.subheader("Diagnóstico da requisição ICS")
+            st.json(diag)
+            # grava no log
+            log.info("=== ICS DIAG ===\n%s\n=== /ICS DIAG ===", json.dumps(diag, ensure_ascii=False, indent=2))
+# --- DEBUG & LOG SETUP (colocar no topo do app.py) ---
 
 st.set_page_config(page_title="Secretária Virtual", layout="centered")
 st.title("🤖 Secretária Virtual de Reuniões")
@@ -130,4 +152,5 @@ if st.button("Agendar Reunião"):
         st.success("Evento criado na agenda Gmail!")
         if link_evento:
             st.markdown(f"[Abrir no Google Calendar]({link_evento})")
+
 
