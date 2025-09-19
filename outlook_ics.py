@@ -61,3 +61,58 @@ def buscar_eventos_outlook_ics(
             resumo = (ev.name or "Ocupado").strip()
             busy.append((start, end, resumo, "marcelo.vasserman@arlequim.com"))
     return busy
+
+
+
+
+# --- Diagnóstico ICS (para logs/UI) ---
+def diagnostico_ics(ics_url: str) -> dict:
+    """
+    Faz um GET no ICS e retorna um dicionário com informações de diagnóstico
+    sem lançar exceção (ideal para logs e UI).
+    """
+    info = {"input_url": ics_url}
+    try:
+        url = ics_url
+        if url.lower().startswith("webcal://"):
+            url = "https://" + url[len("webcal://"):]
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+            )
+        }
+        resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        info.update(
+            {
+                "final_url": getattr(resp, "url", url),
+                "status_code": resp.status_code,
+                "content_type": (resp.headers.get("Content-Type") or "").lower(),
+                "content_length": int(resp.headers.get("Content-Length", "0") or 0),
+                "redirected": bool(getattr(resp, "history", [])),
+            }
+        )
+        # tenta obter texto com tolerância
+        try:
+            text = resp.text if resp.encoding else resp.content.decode("utf-8", "ignore")
+        except Exception:
+            text = resp.content.decode("utf-8", "ignore")
+        snippet = (text or "")[:300]
+        info["preview"] = snippet
+        info["looks_like_ics"] = snippet.lstrip().startswith("BEGIN:VCALENDAR") or \
+            "text/calendar" in info["content_type"]
+        info["error"] = None
+    except Exception as e:
+        info.update(
+            {
+                "final_url": None,
+                "status_code": None,
+                "content_type": None,
+                "content_length": None,
+                "redirected": None,
+                "preview": "",
+                "looks_like_ics": False,
+                "error": str(e),
+            }
+        )
+    return info
