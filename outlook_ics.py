@@ -1,4 +1,3 @@
-# outlook_ics.py
 import requests
 from ics import Calendar
 from dateutil import tz
@@ -12,11 +11,13 @@ def buscar_eventos_outlook_ics(
     tzname: str = "America/Sao_Paulo",
 ) -> List[Tuple[datetime, datetime, str, str]]:
     """
-    Lê um calendário ICS remoto e retorna eventos no formato:
+    Lê um calendário ICS remoto e retorna eventos:
     (inicio_dt, fim_dt, resumo, id)
-    - inicio/fim: datetime com tzinfo
     """
-    # Cliente HTTP mais robusto para O365
+    # Normaliza esquemas "webcal://"
+    if ics_url.lower().startswith("webcal://"):
+        ics_url = "https://" + ics_url[len("webcal://"):]
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -25,7 +26,6 @@ def buscar_eventos_outlook_ics(
     }
     resp = requests.get(ics_url, headers=headers, timeout=15, allow_redirects=True)
 
-    # Tratativas comuns em produção
     if resp.status_code in (401, 403):
         raise PermissionError(
             f"ICS não acessível (HTTP {resp.status_code}). "
@@ -33,11 +33,17 @@ def buscar_eventos_outlook_ics(
         )
     resp.raise_for_status()
 
-    # Decodificação tolerante
     try:
         text = resp.text if resp.encoding else resp.content.decode("utf-8", "ignore")
     except Exception:
         text = resp.content.decode("utf-8", "ignore")
+
+    ctype = (resp.headers.get("Content-Type") or "").lower()
+    if "text/calendar" not in ctype and not text.lstrip().startswith("BEGIN:VCALENDAR"):
+        raise ValueError(
+            "Conteúdo recebido não é um arquivo ICS válido. "
+            "Confirme se o link está público e em formato .ics (não página de login)."
+        )
 
     cal = Calendar(text)
 
@@ -46,18 +52,12 @@ def buscar_eventos_outlook_ics(
     for ev in getattr(cal, "events", []):
         if not getattr(ev, "begin", None) or not getattr(ev, "end", None):
             continue
-
-        # ev.begin/ev.end são Arrow; converter com segurança
         try:
             start = ev.begin.astimezone(tz_sp)
             end = ev.end.astimezone(tz_sp)
         except Exception:
-            # Se algo vier sem tz, pula para evitar quebra em produção
             continue
-
-        # Interseção com a janela solicitada
         if start < fim and end > inicio:
             resumo = (ev.name or "Ocupado").strip()
             busy.append((start, end, resumo, "marcelo.vasserman@arlequim.com"))
-
     return busy
